@@ -15,7 +15,7 @@ Enhancement
 2. To perform controllable brightness backlit enhancement, run the Test_control.py file and provide a mask for the selected region of the image.
 
 ## Citation
-If CSPN helps your research or work, please consider citing this paper.
+If Control-Lit helps your research or work, please consider citing this paper.
 ```
 @article{Control-Lit,
   title={Control-Lit: Illumination Controllable Backlit Image Enhancement}, 
