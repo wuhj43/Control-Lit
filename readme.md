@@ -20,7 +20,7 @@ If Control-Lit helps your research or work, please consider citing this paper.
 @article{Control-Lit,
   title={Control-Lit: Illumination Controllable Backlit Image Enhancement}, 
   author={Wu, Hongjun and Tang, Yi and Li, Chongyi and Jin, Zhi},
-   journal={IEEE Transactions on Circuits and Systems for Video Technology}, 
+  journal={IEEE Transactions on Circuits and Systems for Video Technology}, 
   year={2026},
   publisher={IEEE}
 }
