@@ -40,7 +40,7 @@ class Diff_cproc_vss_ir_all(nn.Module):
                           d_state=16,  # 16
                           drop=0,  # 0
                           attn_drop=0,  # 0
-                          drop_path=0.2,  # ，每一个模块传一个概率值
+                          drop_path=0.2,  #
                           norm_layer=nn.LayerNorm,  # nn.LN
                           downsample=None,  # PatchMerging2D if (i_layer < self.num_layers - 1) else None,
                           use_checkpoint=False,
@@ -92,14 +92,14 @@ class VSSLayer_ir(nn.Module):
         use_checkpoint (bool): Whether to use checkpointing to save memory. Default: False.
     """
 
-    def __init__(  # 以第一个为例
+    def __init__(
             self,
             dim,  # # 96
             depth,  # 2
             d_state=16,
             drop=0.,
             attn_drop=0.,
-            drop_path=0.2,  # 每一个模块都有一个drop
+            drop_path=0.2,
             norm_layer=nn.LayerNorm,
             downsample=None,  # PatchMergin2D
             use_checkpoint=False,
@@ -313,14 +313,8 @@ class DCP_light_pred_algo_vss_3in_mscale(nn.Module):
         out3 = self.trans3(torch.cat([out2_d, F.interpolate(img_d2, scale_factor=0.25)], dim=1))
         out2_up = F.interpolate(out2, scale_factor=2, mode='nearest')
         out3_up = F.interpolate(out3, scale_factor=4, mode='nearest')
-        # trans_for_out = self.trans_for(torch.cat([lcp_tmp, img_d2], dim=1))
-        # lcp=torch.pow(lcp,al.unsqueeze(-1).unsqueeze(-1))
-        # lcp_pred =lcp_tmp*(1+self.out(mam_out*(1-mask)+trans_for_out*(mask)))
-
-        # lcp_pred =strech(lcp,self.out(torch.cat([out1,out2_up,out3_up],dim=1)))
         lcp_pred = self.weig * lcp + self.out(torch.cat([out1, out2_up, out3_up], dim=1))
-        # lcp_pred
-        # lcp_pred = F.interpolate(lcp_pred, (H, W))
+
         if gt == None:
             return lcp_pred
         else:
@@ -338,8 +332,6 @@ class Control_Lit(nn.Module):
     def __init__(self, in_c,out_c,stage,region=25,num_blocks1=4,num_blocks2=2,channel_numb=32,depth=16,n_e=1024,rank=4,weight=10):
         super(Control_Lit, self).__init__()
         self.channel_numb=channel_numb
-        # self.conv_l1 = nn.Sequential(nn.Conv2d(in_c*2, self.channel_numb, (3, 3), padding=1),nn.GELU(),nn.Conv2d(self.channel_numb, out_c,(3, 3), padding=1))
-        # self.conv_l2 = nn.Sequential(nn.Conv2d(in_c*2, self.channel_numb, (3, 3), padding=1),nn.GELU(),nn.Conv2d(self.channel_numb, out_c,(3, 3), padding=1))
         self.conv_l1 = Diff_cproc_vss_ir_all(in_c*3,in_c,64,patch_size=4,depth=4)#nn.Sequential(nn.Conv2d(in_c*2, self.channel_numb, (3, 3), padding=1),nn.GELU(),nn.Conv2d(self.channel_numb, out_c,(3, 3), padding=1))
         self.conv_l2 = Diff_cproc_vss_ir_all(in_c*3,in_c,64,patch_size=4,depth=4)#nn.Sequential(nn.Conv2d(in_c*2, self.channel_numb, (3, 3), padding=1),nn.GELU(),nn.Conv2d(self.channel_numb, out_c,(3, 3), padding=1))
         self.conv_l3 = nn.Sequential(PatchEmbed2D(2,in_c, self.channel_numb*4,nn.LayerNorm),#nn.Conv2d(in_c, self.channel_numb*4 , (1, 1), padding=0),
@@ -358,9 +350,7 @@ class Control_Lit(nn.Module):
                                      )
         self.istnorm=nn.InstanceNorm2d(self.channel_numb*4)
 
-        self.conv_r3 = nn.Sequential(#nn.Conv2d(self.channel_numb* 2, self.channel_numb * 2, (1, 1), padding=0),
-                                     # MSAB(dim=self.channel_numb*4, num_blocks=num_blocks, dim_head=self.channel_numb*4 // 4, heads=4),
-                                     # ResBlock(n_feats=self.channel_numb * 4, act=nn.GELU()),
+        self.conv_r3 = nn.Sequential(
                                      ResBlock(n_feats=self.channel_numb * 4, act=nn.GELU(),conv=default_conv),
                                      ResBlock(n_feats=self.channel_numb * 4, act=nn.GELU(),conv=default_conv),
                                      nn.Conv2d(self.channel_numb*4, out_c,1))
@@ -368,16 +358,10 @@ class Control_Lit(nn.Module):
         self.gauss_k=get_gaussian_kernel(kernel_size=5)
         self.n_e=n_e
         self.depth=depth
-        self.vq3= FSQ(levels=[8,5,5,5],dim=self.channel_numb*4)#VQModule_norm_sparse_sample_reinit_vm_QR_lcp_spreadv3_v2(64 * 4 * 2, self.channel_numb*4, depth=depth,n_e=n_e,rank=rank,weight=weight)  #(64 * 4 * 2, self.channel_numb*4, depth=dep,stage=stage)
+        self.vq3= FSQ(levels=[8,5,5,5],dim=self.channel_numb*4)
         self.stage=stage
         self.gradient=GradientLoss()
         self.unfold = nn.Unfold(kernel_size=(2, 2), stride=2)
-        # self.est_lcp = nn.Sequential(nn.Conv2d(1, self.channel_numb * 4, (1, 1), padding=0),nn.BatchNorm2d(self.channel_numb * 4),nn.GELU(),
-        #                              MSAB(dim=self.channel_numb * 4, num_blocks=num_blocks,
-        #                                   dim_head=self.channel_numb * 4 // 4, heads=4),
-        #                              nn.Conv2d(self.channel_numb * 4,1, (1, 1), padding=0),nn.GELU(),
-        #                              )
-        # self.est_lcp=Diff_cproc_se(1,1,128)
         self.est_lcp = DCP_light_pred_algo_vss_3in_mscale()
         # params = torch.load('/data/wuhj/project/seg/DCP_light_pred_algo_3in_mscale/ep_1480.pth')
         # new_dict = {k: v for k, v in params.items()}
@@ -400,6 +384,7 @@ class Control_Lit(nn.Module):
         #                              Final_PatchExpand2D(self.channel_numb*4,2,nn.LayerNorm)
         #                              )
         #     self.need_idx=False
+        # if self.stage == 2:
         #     for name,param in self.named_parameters():
         #         if ('conv_l3' in name) or ('vq' in name) or ('conv_r' in name) or ('gauss_k' in name):#('vq' in name) or
         #             param.requires_grad=False
@@ -524,97 +509,97 @@ class Control_Lit(nn.Module):
             est_c=self.est_lcp(c)+c
             gt_c=get_light_channel(gt_img_d2, 7).unsqueeze(1)
             return est_c,gt_c,c
-        if self.stage==0:
-            # var_map = torch.var(self.unfold(torch.mean(img_d2, dim=1, keepdim=True)), dim=1, keepdim=True).view(B, 1,int(H / 2),int(W / 2))
-            # mean_map = torch.mean(img_d2, dim=1, keepdim=True)
-            layer_f3 = self.conv_l3(img_d2)  #
-            # lcp_backlit = get_light_channel(img_d2,7)
-            # lcp_light = get_light_channel(gt_img_d2, 7)
-            # if not use_gt_lcp:
-            #     lcp= create_dist_grid(lcp_backlit.flatten(),self.n_e)
-            # else:
-            #     lcp = create_dist_grid(lcp_light.flatten(), self.n_e)
-
-            fq3,ids= self.vq3(layer_f3)
-            r3_rec = self.conv_r3(fq3)
-            if use_gt_high:
-                result = self.up_lplas(gt_r1, gt_r2, r3_rec)
-            else:
-                result = self.up_lplas(r1, r2, r3_rec)
-
-            return result, [r3_rec],
+        # if self.stage==0:
+        #     # var_map = torch.var(self.unfold(torch.mean(img_d2, dim=1, keepdim=True)), dim=1, keepdim=True).view(B, 1,int(H / 2),int(W / 2))
+        #     # mean_map = torch.mean(img_d2, dim=1, keepdim=True)
+        #     layer_f3 = self.conv_l3(img_d2)  #
+        #     # lcp_backlit = get_light_channel(img_d2,7)
+        #     # lcp_light = get_light_channel(gt_img_d2, 7)
+        #     # if not use_gt_lcp:
+        #     #     lcp= create_dist_grid(lcp_backlit.flatten(),self.n_e)
+        #     # else:
+        #     #     lcp = create_dist_grid(lcp_light.flatten(), self.n_e)
+        #
+        #     fq3,ids= self.vq3(layer_f3)
+        #     r3_rec = self.conv_r3(fq3)
+        #     if use_gt_high:
+        #         result = self.up_lplas(gt_r1, gt_r2, r3_rec)
+        #     else:
+        #         result = self.up_lplas(r1, r2, r3_rec)
+        #
+        #     return result, [r3_rec],
+        # elif self.stage==1:
+        #     layer_f3 = self.conv_l3(img_d2)
+        #     # mask = F.interpolate(mask, size=[layer_f3.shape[-2], layer_f3.shape[-1]], mode='bicubic')
+        #     fq3=layer_f3
+        #     # tv.utils.save_image(get_light_channel(img_d2, 7), '/data/wuhongjun/project/segv2/lcp_extract/lcp.png')
+        #     # lcp_pred=self.est_lcp(get_light_channel(img_d2, 7).unsqueeze(1))
+        #     # lcp_pred_flatten = create_dist_grid(lcp_pred.flatten(), self.n_e)
+        #
+        #     fq3_after, idexs = self.vq3(fq3)
+        #
+        #     # il_map=self.proj(torch.max(img_d2,dim=1,keepdim=True)[0])
+        #     # il_map_inv=self.proj(1-torch.max(img_d2,dim=1,keepdim=True)[0])
+        #
+        #
+        #     # m_shift=self.est(torch.cat([fq3_after,il_map],dim=1))
+        #     # v_shift=self.est_m(torch.cat([fq3_after,il_map],dim=1))
+        #     #
+        #     # m_shift_inv = self.est(torch.cat([fq3_after, il_map_inv], dim=1))
+        #     # v_shift_inv = self.est_m(torch.cat([fq3_after, il_map_inv], dim=1))
+        #
+        #
+        #     # rot_input=self.pool(fq3_after).squeeze(-1).squeeze(-1)
+        #
+        #     fq3_after = fq3_after + ((self.adj_m(fq3_after)))# * (1-lcp_pred)
+        #
+        #     # fq3_after = fq3_after+((self.adj_m(fq3_after.permute(0, 2, 3, 1))).permute(0, 3, 1, 2))*mask+((self.adj_m_inv(fq3_after.permute(0, 2, 3, 1))).permute(0, 3, 1, 2))*(1-mask)
+        #     # fq3_after=(fq3_after*(1+v_shift)+m_shift)*mask+(fq3_after*(1+v_shift_inv)+m_shift_inv)*(1-mask)
+        #     r3_rec = self.conv_r3(fq3_after)
+        #     #
+        #     gra1 = self.gradient.construct_gt(x)
+        #     gra2 = self.gradient.construct_gt(F.interpolate(x, scale_factor=0.5, mode='bicubic'))
+        #     #
+        #     r3_rec_up2=F.interpolate(img_d2,scale_factor=2,mode='bicubic')
+        #     r2_rec=self.conv_l2(torch.cat([r3_rec_up2,r2,gra2],dim=1))
+        #
+        #     r3_rec_up4 = F.interpolate(img_d2,scale_factor=4,mode='bicubic')
+        #     r1_rec = self.conv_l1(torch.cat([r3_rec_up4, r1,gra1],dim=1))
+        #
+        #     result = self.up_lplas(r1_rec,r2_rec,r3_rec)
+        #     # mask_pred = self.pred_mask(result, gt)
+        #
+        #     if self.training:
+        #         # gt_layer_f3 = self.conv_l3(gt_img_d2)
+        #         # gt_fq3_after, codebook_loss3_gt, _, _, idgt = self.vq3(gt_layer_f3,[0,0], tau=1, test=False)
+        #         # gt_r3_rec = self.conv_r3(gt_fq3_after)
+        #         #
+        #         # gt_m=torch.mean(gt_layer_f3,dim=1).flatten()
+        #         # gt_v = torch.var(gt_layer_f3, dim=1).flatten()
+        #         # est_m = torch.mean(fq3_after, dim=1).flatten()
+        #         # est_v = torch.var(fq3_after, dim=1).flatten()
+        #         #
+        #         # # [gt_m,gt_v]=self.vq3.get_ref_m_v(gt_layer_f3)
+        #         # # [est_m,est_v] = self.vq3.get_ref_m_v(fq3)
+        #         # # est_m = est_m.squeeze() * (1 + torch.flatten(v_shift)) + torch.flatten(m_shift)
+        #         # # est_v = est_v.squeeze() * (1 + torch.flatten(v_shift)) * (1 + torch.flatten(v_shift))
+        #         #
+        #         # # A=self.adj_m(self.one)
+        #         # # A_inv = self.adj_m_inv(self.one)
+        #         # # F_loss=torch.norm(A-A.T)+torch.norm(A_inv-A_inv.T)
+        #         # F_loss=torch.zeros(1).cuda()
+        #         # lcp_gt=get_light_channel(gt_img_d2, 7).unsqueeze(1)
+        #         return result
+        #         # return result, F_loss, [fq3, gt_layer_f3], [fq3_after, gt_fq3_after], [
+        #         #     r3_rec, gt_r3_rec],[est_m,est_v,gt_m,gt_v]
+        #
+        #     else:
+        #         # if self.need_idx:
+        #         #     [gt_m,gt_v] = self.vq3.get_ref_m_v(gt_layer_f3)
+        #         #     return result, codebook_loss3+codebook_loss3_gt,[fq3,gt_layer_f3],[fq3_after,gt_fq3_after],[r3_rec,gt_r3_rec],[est_m,est_v,gt_m,gt_v],idexs
+        #         # else:
+        #         return result
         elif self.stage==1:
-            layer_f3 = self.conv_l3(img_d2)
-            # mask = F.interpolate(mask, size=[layer_f3.shape[-2], layer_f3.shape[-1]], mode='bicubic')
-            fq3=layer_f3
-            # tv.utils.save_image(get_light_channel(img_d2, 7), '/data/wuhongjun/project/segv2/lcp_extract/lcp.png')
-            # lcp_pred=self.est_lcp(get_light_channel(img_d2, 7).unsqueeze(1))
-            # lcp_pred_flatten = create_dist_grid(lcp_pred.flatten(), self.n_e)
-
-            fq3_after, idexs = self.vq3(fq3)
-
-            # il_map=self.proj(torch.max(img_d2,dim=1,keepdim=True)[0])
-            # il_map_inv=self.proj(1-torch.max(img_d2,dim=1,keepdim=True)[0])
-
-
-            # m_shift=self.est(torch.cat([fq3_after,il_map],dim=1))
-            # v_shift=self.est_m(torch.cat([fq3_after,il_map],dim=1))
-            #
-            # m_shift_inv = self.est(torch.cat([fq3_after, il_map_inv], dim=1))
-            # v_shift_inv = self.est_m(torch.cat([fq3_after, il_map_inv], dim=1))
-
-
-            # rot_input=self.pool(fq3_after).squeeze(-1).squeeze(-1)
-
-            fq3_after = fq3_after + ((self.adj_m(fq3_after)))# * (1-lcp_pred)
-
-            # fq3_after = fq3_after+((self.adj_m(fq3_after.permute(0, 2, 3, 1))).permute(0, 3, 1, 2))*mask+((self.adj_m_inv(fq3_after.permute(0, 2, 3, 1))).permute(0, 3, 1, 2))*(1-mask)
-            # fq3_after=(fq3_after*(1+v_shift)+m_shift)*mask+(fq3_after*(1+v_shift_inv)+m_shift_inv)*(1-mask)
-            r3_rec = self.conv_r3(fq3_after)
-            #
-            gra1 = self.gradient.construct_gt(x)
-            gra2 = self.gradient.construct_gt(F.interpolate(x, scale_factor=0.5, mode='bicubic'))
-            #
-            r3_rec_up2=F.interpolate(img_d2,scale_factor=2,mode='bicubic')
-            r2_rec=self.conv_l2(torch.cat([r3_rec_up2,r2,gra2],dim=1))
-
-            r3_rec_up4 = F.interpolate(img_d2,scale_factor=4,mode='bicubic')
-            r1_rec = self.conv_l1(torch.cat([r3_rec_up4, r1,gra1],dim=1))
-
-            result = self.up_lplas(r1_rec,r2_rec,r3_rec)
-            # mask_pred = self.pred_mask(result, gt)
-
-            if self.training:
-                # gt_layer_f3 = self.conv_l3(gt_img_d2)
-                # gt_fq3_after, codebook_loss3_gt, _, _, idgt = self.vq3(gt_layer_f3,[0,0], tau=1, test=False)
-                # gt_r3_rec = self.conv_r3(gt_fq3_after)
-                #
-                # gt_m=torch.mean(gt_layer_f3,dim=1).flatten()
-                # gt_v = torch.var(gt_layer_f3, dim=1).flatten()
-                # est_m = torch.mean(fq3_after, dim=1).flatten()
-                # est_v = torch.var(fq3_after, dim=1).flatten()
-                #
-                # # [gt_m,gt_v]=self.vq3.get_ref_m_v(gt_layer_f3)
-                # # [est_m,est_v] = self.vq3.get_ref_m_v(fq3)
-                # # est_m = est_m.squeeze() * (1 + torch.flatten(v_shift)) + torch.flatten(m_shift)
-                # # est_v = est_v.squeeze() * (1 + torch.flatten(v_shift)) * (1 + torch.flatten(v_shift))
-                #
-                # # A=self.adj_m(self.one)
-                # # A_inv = self.adj_m_inv(self.one)
-                # # F_loss=torch.norm(A-A.T)+torch.norm(A_inv-A_inv.T)
-                # F_loss=torch.zeros(1).cuda()
-                # lcp_gt=get_light_channel(gt_img_d2, 7).unsqueeze(1)
-                return result
-                # return result, F_loss, [fq3, gt_layer_f3], [fq3_after, gt_fq3_after], [
-                #     r3_rec, gt_r3_rec],[est_m,est_v,gt_m,gt_v]
-
-            else:
-                # if self.need_idx:
-                #     [gt_m,gt_v] = self.vq3.get_ref_m_v(gt_layer_f3)
-                #     return result, codebook_loss3+codebook_loss3_gt,[fq3,gt_layer_f3],[fq3_after,gt_fq3_after],[r3_rec,gt_r3_rec],[est_m,est_v,gt_m,gt_v],idexs
-                # else:
-                return result
-        elif self.stage==2:
 
             layer_f3 = self.conv_l3(img_d2)  #
             # lcp_backlit = get_light_channel(img_d2,7)
@@ -649,7 +634,7 @@ class Control_Lit(nn.Module):
                 else:
                     result = self.up_lplas(r1, r2, r3_rec)
                 return result#pred_c,(c).permute(0,2,3,1).view(c.shape[0],-1,1)
-        elif self.stage==3:
+        elif self.stage==2:
             layer_f3 = self.conv_l3(img_d2)  #
             c = get_light_channel(img_d2, 7).unsqueeze(1)
             gt_c=self.est_lcp(c,img_short=img_d2)
@@ -670,27 +655,27 @@ class Control_Lit(nn.Module):
 
             result = self.up_lplas(r1_rec, r2_rec, r3_rec)
             return result
-        elif self.stage==45:
-            layer_f3 = self.conv_l3(img_d2)  #
-            c = get_light_channel(img_d2, 7).unsqueeze(1)
-            gt_c=self.est_lcp(c,img_short=img_d2)
-            diff_c=(gt_c - c).permute(0,2,3,1).view(c.shape[0],-1,1)
-            fq3_after,_ = self.vq3(layer_f3, (diff_c.repeat(1,1,4)* self.light_vector.squeeze()))
-            # r3_rec = self.conv_r3(feature)
-            # fq3_after = fq3_after + ((self.adj_m(fq3_after)))
-            r3_rec = self.conv_r3(fq3_after)
-            #
-            # gra1 = self.gradient.construct_gt(x)
-            # gra2 = self.gradient.construct_gt(F.interpolate(x, scale_factor=0.5, mode='bicubic'))
-            #
-            # r3_rec_up2 = F.interpolate(img_d2, scale_factor=2, mode='bicubic')
-            # r2_rec = self.conv_l2(torch.cat([r3_rec_up2, r2, gra2], dim=1))
-            #
-            # r3_rec_up4 = F.interpolate(img_d2, scale_factor=4, mode='bicubic')
-            # r1_rec = self.conv_l1(torch.cat([r3_rec_up4, r1, gra1], dim=1))
-
-            result = self.up_lplas(r1, r2, r3_rec)
-            return result
+        # elif self.stage==45:
+        #     layer_f3 = self.conv_l3(img_d2)  #
+        #     c = get_light_channel(img_d2, 7).unsqueeze(1)
+        #     gt_c=self.est_lcp(c,img_short=img_d2)
+        #     diff_c=(gt_c - c).permute(0,2,3,1).view(c.shape[0],-1,1)
+        #     fq3_after,_ = self.vq3(layer_f3, (diff_c.repeat(1,1,4)* self.light_vector.squeeze()))
+        #     # r3_rec = self.conv_r3(feature)
+        #     # fq3_after = fq3_after + ((self.adj_m(fq3_after)))
+        #     r3_rec = self.conv_r3(fq3_after)
+        #     #
+        #     # gra1 = self.gradient.construct_gt(x)
+        #     # gra2 = self.gradient.construct_gt(F.interpolate(x, scale_factor=0.5, mode='bicubic'))
+        #     #
+        #     # r3_rec_up2 = F.interpolate(img_d2, scale_factor=2, mode='bicubic')
+        #     # r2_rec = self.conv_l2(torch.cat([r3_rec_up2, r2, gra2], dim=1))
+        #     #
+        #     # r3_rec_up4 = F.interpolate(img_d2, scale_factor=4, mode='bicubic')
+        #     # r1_rec = self.conv_l1(torch.cat([r3_rec_up4, r1, gra1], dim=1))
+        #
+        #     result = self.up_lplas(r1, r2, r3_rec)
+        #     return result
 
     def visual(self, x):
         r1, r2, img_d2 = self.down_lplas(x)
@@ -703,17 +688,11 @@ class Control_Lit(nn.Module):
         # 创建一个全1的卷积核
         kernel = torch.ones((1, 1, kernel_size, kernel_size), dtype=torch.float32).cuda()
 
-        # 将输入的二值mask升维，以适应卷积操作的输入要求
-        # mask = mask.unsqueeze(0).unsqueeze(0).float()  # (B, C, H, W) -> (1, 1, H, W)
 
-        # 对mask应用卷积操作
         dilated_mask = F.conv2d(mask, kernel, padding=kernel_size // 2)
 
-        # 将膨胀后的mask转为二值
         dilated_mask = (dilated_mask > 0).float()
 
-        # 去掉多余的维度
-        # dilated_mask = dilated_mask.squeeze(0).squeeze(0)
 
         return dilated_mask
     def forward_vector_sam(self, x,mask,degree=0.,):
